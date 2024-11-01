@@ -46,3 +46,8 @@ export interface IGeneratedResponse {
     role: string;
   };
 }
+
+export interface IModel {
+  model: string;
+  name: string;
+}

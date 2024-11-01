@@ -1,40 +1,88 @@
-// app/api/chat/route.ts
-import { NextRequest } from "next/server";
+// import { NextRequest } from "next/server";
 
-export async function POST(request: NextRequest) {
-  const { model, message } = await request.json();
+// export const runtime = "edge";
 
-  const streamResponse = new ReadableStream({
-    async start(controller) {
-      try {
-        const response = await fetch(
-          `${process.env.NEXT_PUBLIC_BASE_URL}/api/chat`,
-          {
-            method: "POST",
-            body: JSON.stringify({ model, message, stream: true }),
-            headers: { "Content-Type": "application/json" },
-          },
-        );
+// export async function POST(request: NextRequest) {
+//   const { model, message } = await request.json();
+//   const modelName: string = model.split(":")[0];
 
-        if (!response.body) throw new Error("No response body");
+//   console.log("model:", modelName);
+//   console.log("message:", message);
 
-        const reader = response.body.getReader();
-        const decoder = new TextDecoder("utf-8");
+//   // Validate input
+//   if (!message || !model) {
+//     return new Response(
+//       JSON.stringify({ error: "Message and model are required" }),
+//       {
+//         status: 400,
+//         headers: { "Content-Type": "application/json" },
+//       },
+//     );
+//   }
 
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          controller.enqueue(decoder.decode(value));
-        }
+//   const streamResponse = new ReadableStream({
+//     async start(controller) {
+//       try {
+//         const response = await fetch(
+//           `${process.env.NEXT_PUBLIC_BASE_URL}/api/chat`,
+//           {
+//             method: "POST",
+//             body: JSON.stringify({
+//               model: modelName,
+//               // Fixed typo in 'prompt'
+//               prompt: message,
+//               // Enable streaming since we're using ReadableStream
+//               stream: false,
+//             }),
+//             headers: {
+//               "Content-Type": "application/json",
+//             },
+//           },
+//         );
 
-        controller.close();
-      } catch (error) {
-        controller.error(error);
-      }
-    },
+//         if (!response.ok) {
+//           throw new Error(`HTTP error! status: ${response.status}`);
+//         }
+
+//         if (!response.body) {
+//           throw new Error("No response body");
+//         }
+
+//         console.log("response:", response.body);
+//       } catch (error) {
+//         console.error("Error in stream:", error);
+//         controller.error(error);
+//       }
+//     },
+//   });
+
+//   return new Response(streamResponse, {
+//     headers: {
+//       "Content-Type": "text/event-stream",
+//       "Cache-Control": "no-cache, no-transform",
+//       Connection: "keep-alive",
+//       "Transfer-Encoding": "chunked",
+//     },
+//   });
+// }
+
+import { createOllama } from "ollama-ai-provider";
+import { streamText } from "ai";
+
+const ollama = createOllama();
+
+export async function POST(req: Request) {
+  const { model, message } = await req.json();
+
+  const result = await streamText({
+    model: ollama(model.split(":")[0]),
+    messages: [
+      {
+        role: "user",
+        content: message,
+      },
+    ],
   });
 
-  return new Response(streamResponse, {
-    headers: { "Content-Type": "text/event-stream" },
-  });
+  return result.toDataStreamResponse();
 }
