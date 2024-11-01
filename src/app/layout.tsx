@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { Toaster } from "@/components/ui/toaster";
 import { ThemeProvider } from "@/context/ThemeProvider";
 import "./globals.css";
+import LayoutProvider from "@/context/LayoutProvider";
 
 const geistSans = localFont({
   src: "./fonts/GeistVF.woff",
@@ -37,10 +38,12 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          <TooltipProvider>
-            {children}
-            <Toaster />
-          </TooltipProvider>
+          <LayoutProvider>
+            <TooltipProvider>
+              {children}
+              <Toaster />
+            </TooltipProvider>
+          </LayoutProvider>
         </ThemeProvider>
       </body>
     </html>
