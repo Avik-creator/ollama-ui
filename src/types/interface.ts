@@ -32,3 +32,17 @@ export const buildResponse = (
     stream: stream,
   };
 };
+
+export interface IState {
+  loading: boolean;
+  error: string;
+  streaming: boolean;
+  message: string;
+}
+
+export interface IGeneratedResponse {
+  messages: {
+    content: string;
+    role: string;
+  };
+}
