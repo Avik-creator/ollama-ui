@@ -21,11 +21,7 @@ interface APIResponse {
   stream: boolean;
 }
 
-export const buildResponse = (
-  model: string,
-  messages: Message[],
-  stream: boolean,
-): APIResponse => {
+export const buildResponse = (model: string, messages: Message[], stream: boolean): APIResponse => {
   return {
     model: model,
     messages: messages,

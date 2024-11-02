@@ -10,11 +10,7 @@ import {
   DrawerTitle,
   DrawerTrigger,
 } from "@/components/ui/drawer";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import SettingsForm from "@/components/form";
 import ChatBlock from "@/components/chat";
 import Link from "next/link";
@@ -26,18 +22,13 @@ export default function Page() {
       <aside className="inset-y fixed  left-0 z-20 flex h-full flex-col border-r">
         <div className="border-b p-2">
           <Button variant="outline" size="icon" aria-label="Home">
-            <Image src={OllamaImage} width={24} height={24} alt="ollama" />
+            <Image src={OllamaImage} width={24} height={24} alt="ollama" className="dark:invert" />
           </Button>
         </div>
         <nav className="mt-auto grid gap-1 p-2">
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="mt-auto rounded-lg"
-                aria-label="Account"
-              >
+              <Button variant="ghost" size="icon" className="mt-auto rounded-lg" aria-label="Account">
                 <Link href="https://github.com/Avik-creator/ollama-ui">
                   <Github className="size-5" />
                 </Link>
@@ -63,9 +54,7 @@ export default function Page() {
             <DrawerContent className="max-h-[80vh]">
               <DrawerHeader>
                 <DrawerTitle>Configuration</DrawerTitle>
-                <DrawerDescription>
-                  Configure the settings for the model and messages.
-                </DrawerDescription>
+                <DrawerDescription>Configure the settings for the model and messages.</DrawerDescription>
               </DrawerHeader>
               <SettingsForm />
             </DrawerContent>
@@ -73,10 +62,7 @@ export default function Page() {
           <ShareButton />
         </header>
         <main className="grid flex-1 gap-4 overflow-auto p-4 md:grid-cols-2 lg:grid-cols-3">
-          <div
-            className="relative hidden flex-col items-start gap-8 md:flex"
-            x-chunk="dashboard-03-chunk-0"
-          >
+          <div className="relative hidden flex-col items-start gap-8 md:flex" x-chunk="dashboard-03-chunk-0">
             <SettingsForm />
           </div>
           <ChatBlock />

@@ -1,59 +1,47 @@
 // app/api/pull/route.ts
-import { NextRequest, NextResponse } from "next/server";
+export async function POST(req: Request) {
+  const { name } = await req.json();
 
-export async function POST(request: NextRequest) {
-  try {
-    const { name, insecure = false, stream = true } = await request.json();
+  const ollamaUrl = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:11434";
 
-    // Sending the request to Ollama's pull endpoint
-    const response = await fetch(
-      `${process.env.NEXT_PUBLIC_BASE_URL}/api/pull`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, insecure, stream }),
-      },
-    );
+  const response = await fetch(ollamaUrl + "/api/pull", {
+    method: "POST",
+    body: JSON.stringify({ name }),
+  });
 
-    if (!response.ok) {
-      throw new Error("Failed to initiate model download");
-    }
+  // Create a new ReadableStream from the response body
+  const stream = new ReadableStream({
+    start(controller) {
+      if (!response.body) {
+        controller.close();
+        return;
+      }
+      const reader = response.body.getReader();
 
-    // Stream the response back to the client if streaming is enabled
-    if (stream) {
-      const streamResponse = new ReadableStream({
-        async start(controller) {
-          const reader = response.body?.getReader();
-          const decoder = new TextDecoder("utf-8");
-
-          if (!reader) {
-            controller.close();
-            return;
-          }
-
-          try {
-            while (true) {
-              const { done, value } = await reader.read();
-              if (done) break;
-              const chunk = decoder.decode(value);
-              controller.enqueue(chunk);
+      function pump() {
+        reader
+          .read()
+          .then(({ done, value }) => {
+            if (done) {
+              controller.close();
+              return;
             }
-            controller.close();
-          } catch (error) {
+            // Enqueue the chunk of data to the controller
+            controller.enqueue(value);
+            pump();
+          })
+          .catch(error => {
+            console.error("Error reading response body:", error);
             controller.error(error);
-          }
-        },
-      });
+          });
+      }
 
-      return new Response(streamResponse, {
-        headers: { "Content-Type": "application/json" },
-      });
-    } else {
-      // If stream is set to false, return a single JSON response after completion
-      const data = await response.json();
-      return NextResponse.json(data);
-    }
-  } catch (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
+      pump();
+    },
+  });
+
+  // Set response headers and return the stream
+  const headers = new Headers(response.headers);
+  headers.set("Content-Type", "application/json");
+  return new Response(stream, { headers });
 }

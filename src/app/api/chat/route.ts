@@ -72,16 +72,13 @@ import { streamText } from "ai";
 const ollama = createOllama();
 
 export async function POST(req: Request) {
-  const { model, message } = await req.json();
+  const message = await req.json();
+
+  const { messages, model } = message;
 
   const result = await streamText({
-    model: ollama(model.split(":")[0]),
-    messages: [
-      {
-        role: "user",
-        content: message,
-      },
-    ],
+    model: ollama(model),
+    messages: messages,
   });
 
   return result.toDataStreamResponse();

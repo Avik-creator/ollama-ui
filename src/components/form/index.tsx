@@ -1,23 +1,22 @@
 "use client";
 
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import React, { useEffect, useState } from "react";
 import { useSettings } from "@/context/LayoutProvider";
-import { Switch } from "@/components/ui/switch";
-import { Input } from "@/components/ui/input";
 import { IModel } from "@/types/interface";
+import { Loader2, Server, Download } from "lucide-react";
+import { toast } from "sonner";
 
 export default function SettingsForm() {
   const [models, setModels] = useState<IModel[]>([]);
   const [loading, setLoading] = useState(true);
+  const [pullModelInput, setPullModelInput] = useState("");
+  const [isPulling, setIsPulling] = useState(false);
   const { settings, applySettings } = useSettings();
 
   useEffect(() => {
@@ -40,117 +39,154 @@ export default function SettingsForm() {
       }
     }
 
-    console.log("LOADING MODELS");
-
     loadModels();
-  }, []);
+  }, [isPulling]);
 
-  if (loading) {
-    return <div className="p-4">Loading models...</div>;
-  }
+  const handlePullModel = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!pullModelInput) return;
+
+    setIsPulling(true);
+    try {
+      const response = await fetch("api/pullModel", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ name: pullModelInput }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to pull model: ${response.status}`);
+      }
+      // Create a new ReadableStream from the response body
+      const reader = response.body.getReader();
+
+      // Read the data in chunks
+      reader.read().then(function processText({ done, value }) {
+        if (done) {
+          setIsPulling(false);
+          return;
+        }
+
+        // Convert the chunk of data to a string
+        const text = new TextDecoder().decode(value);
+
+        // Split the text into individual JSON objects
+        const jsonObjects = text.trim().split("\n");
+
+        jsonObjects.forEach(jsonObject => {
+          try {
+            const responseJson = JSON.parse(jsonObject);
+            if (responseJson.error) {
+              toast.error("Error: " + responseJson.error);
+              setIsPulling(false);
+              return;
+            } else if (responseJson.status === "success") {
+              // Display a success toast if the response status is success
+              toast.success("Model pulled successfully");
+              setIsPulling(false);
+              return;
+            }
+          } catch (error) {
+            toast.error("Error parsing JSON");
+            setIsPulling(false);
+            return;
+          }
+        });
+
+        // Continue reading the next chunk
+        reader.read().then(processText);
+      });
+    } catch (error) {
+      setIsPulling(false);
+      console.error("Error pulling model:", error);
+      toast.error("Error pulling model");
+    }
+  };
 
   return (
-    <form className="grid w-full items-start gap-6">
-      <fieldset className="grid gap-6 rounded-lg border p-4">
-        <legend className="-ml-1 px-1 text-sm font-medium">Settings</legend>
-        <div className="grid gap-3">
-          <Label htmlFor="model">Model</Label>
-          <Select
-            onValueChange={(model) =>
-              applySettings((prev) => ({
-                ...prev,
-                model: model,
-              }))
-            }
-          >
-            <SelectTrigger
-              id="model"
-              className="items-start [&_[data-description]]:hidden"
-            >
-              <SelectValue placeholder="Select a model" />
-            </SelectTrigger>
-            <SelectContent>
-              {models.map((items) => (
-                <SelectItem
-                  value={items.model}
-                  key={items.name}
-                  className="cursor-pointer"
+    <div className="container mx-auto p-4 max-w-2xl">
+      <Card className="mb-8">
+        <CardHeader>
+          <CardTitle className="text-2xl font-bold">AI Model Settings</CardTitle>
+          <CardDescription>Configure and manage your AI models</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {loading ? (
+            <div className="space-y-2">
+              <Skeleton className="h-4 w-full" />
+              <Skeleton className="h-10 w-full" />
+            </div>
+          ) : (
+            <form className="space-y-6">
+              <div className="space-y-2">
+                <Label htmlFor="model" className="text-sm font-medium">
+                  Select Model
+                </Label>
+                <Select
+                  onValueChange={model =>
+                    applySettings(prev => ({
+                      ...prev,
+                      model: model,
+                    }))
+                  }
                 >
-                  <div className="text-muted-foreground">
-                    <div className="grid gap-0.5">
-                      <p>{items.name}</p>
-                      <p className="text-xs" data-description>
-                        {items.model}
-                      </p>
-                    </div>
-                  </div>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      </fieldset>
-      {/* Rest of the form remains the same */}
-      <fieldset className="flex flex-row items-center justify-between rounded-lg border p-4">
-        <legend className="-ml-1 px-1 text-sm font-medium">
-          Custom prompt
-        </legend>
-        <div className="space-y-0.5">
-          <p className="text-sm text-muted-foreground">
-            To activate this feature, enable the option for using a custom
-            prompt.
-          </p>
-        </div>
-        <Switch
-          checked={settings.custom}
-          onCheckedChange={() =>
-            applySettings((prev) => ({
-              ...prev,
-              custom: !settings.custom,
-            }))
-          }
-        />
-      </fieldset>
-      {settings.custom ? (
-        <fieldset className="grid gap-6 rounded-lg border p-4">
-          <legend className="-ml-1 px-1 text-sm font-medium">Messages</legend>
-          <div className="grid gap-3">
-            <Label htmlFor="temperature">Temperature</Label>
-            <Input id="temperature" type="number" placeholder="0.4" />
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="grid gap-3">
-              <Label htmlFor="top-p">Top P</Label>
-              <Input id="top-p" type="number" placeholder="0.7" />
+                  <SelectTrigger id="model" className="w-full">
+                    <SelectValue placeholder="Choose a model" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {models.map(item => (
+                      <SelectItem value={item.model} key={item.name}>
+                        <div className="flex items-center">
+                          <Server className="mr-2 h-4 w-4" />
+                          <div>
+                            <p className="font-medium">{item.name}</p>
+                            <p className="text-xs text-muted-foreground">{item.model}</p>
+                          </div>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </form>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-xl font-bold">Pull New Model</CardTitle>
+          <CardDescription>Add a new AI model to your collection</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handlePullModel} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="pullModel" className="text-sm font-medium">
+                Model Name
+              </Label>
+              <div className="flex space-x-2">
+                <Input
+                  id="pullModel"
+                  placeholder="Enter model name"
+                  value={pullModelInput}
+                  onChange={e => setPullModelInput(e.target.value)}
+                  className="flex-grow"
+                />
+                <Button type="submit" disabled={isPulling} className="w-24">
+                  {isPulling ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Download className="mr-2 h-4 w-4" />
+                  )}
+                  {isPulling ? "Pulling" : "Pull"}
+                </Button>
+              </div>
             </div>
-            <div className="grid gap-3">
-              <Label htmlFor="top-k">Top K</Label>
-              <Input id="top-k" type="number" placeholder="0.0" />
-            </div>
-          </div>
-          <div className="grid gap-3">
-            <Label htmlFor="role">Role</Label>
-            <Select defaultValue="system">
-              <SelectTrigger>
-                <SelectValue placeholder="Select a role" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="system">System</SelectItem>
-                <SelectItem value="user">User</SelectItem>
-                <SelectItem value="assistant">Assistant</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="grid gap-3">
-            <Label htmlFor="content">Content</Label>
-            <Textarea
-              id="content"
-              placeholder="You are a..."
-              className="min-h-[9.5rem]"
-            />
-          </div>
-        </fieldset>
-      ) : null}
-    </form>
+          </form>
+        </CardContent>
+      </Card>
+    </div>
   );
 }
